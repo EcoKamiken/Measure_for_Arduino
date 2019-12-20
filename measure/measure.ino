@@ -40,29 +40,48 @@ void loop()
   filter = 0x00ff;
   // sprintf(&send_msg[0], "%x", SITE_ID & filter);
   wd[0] = SITE_ID & filter;
-  // wdをパースしてsend_msg[0],[1]に割り当てるコードを後で書く.
+  sprintf(&send_msg[0], "%x", wd[0] & 0x0f);
+  sprintf(&send_msg[1], "%x", wd[0] & 0xf0);
 
   // 1 byte
   filter = 0x00ff;
   wd[1] = (FORMAT_VERSION << 4) | ((SITE_ID & filter) >> 8);
+  sprintf(&send_msg[2], "%x", wd[1] & 0x0f);
+  sprintf(&send_msg[3], "%x", wd[1] & 0xf0);
 
   // 2 byte
   wd[2] = (IS_MEASUREMENT_ERROR << 7) | data_id;
+  sprintf(&send_msg[4], "%x", wd[2] & 0x0f);
+  sprintf(&send_msg[5], "%x", wd[2] & 0xf0);
 
   // 3 byte
   int average = device.measurement();
   filter = 0x00ff;
   wd[3] = average & filter;
+  sprintf(&send_msg[6], "%x", wd[3] & 0x0f);
+  sprintf(&send_msg[7], "%x", wd[3] & 0xf0);
 
   // 4 byte
   filter = 0x0f00;
   wd[4] = (DEVICE_ID << 4) | (average & filter) >> 8;
+  sprintf(&send_msg[8], "%x", wd[4] & 0x0f);
+  sprintf(&send_msg[9], "%x", wd[4] & 0xf0);
+  send_msg[10] = '\0';
 
-  for (int i = 0; i < 5; i++) {
+//  for (int i = 0; i < 12; i+=2) {
+//    for (int j = 0; j < 5; j++) {
+//      sprintf(&send_msg[i], "%x", wd[j] & 0x00ff);
+//      sprintf(&send_msg[i+1], "%x", wd[j] & 0xff00);
+//    }
+//  }
+
+  Serial.println("send_msg");
+  for (int i = 0; i < 12; i++) {
     Serial.println(send_msg[i]);
   }
-  
-  // transceiver.sendMessage(send_msg);
+
+  String s = send_msg;
+  transceiver.sendMessage(s);
   
   data_id == DATA_ID_MAX
     ? data_id = 0
