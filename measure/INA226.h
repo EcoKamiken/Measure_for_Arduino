@@ -11,7 +11,6 @@ class INA226
     float get_voltage();
     float get_power();
     float get_ampere();
-    int measurement();
     
   private:
     int _I2C_ADDR = 0x4a;

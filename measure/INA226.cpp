@@ -51,8 +51,3 @@ float INA226::get_power() {
 float INA226::get_ampere() {
   return fetch_register(_SHUNT_ADDR, 2);
 }
-
-int INA226::measurement() {
-  // stub
-  return 400.0 * 10;
-}

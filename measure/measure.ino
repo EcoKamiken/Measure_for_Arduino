@@ -34,7 +34,7 @@ void setup()
   Serial.println(F("Running setup..."));
 
   // Arduino Shield
-  // if (!transceiver.begin()) { stop(F("Unable to init SIGFOX module. may be missing")); }
+  if (!transceiver.begin()) { stop(F("Unable to init SIGFOX module. may be missing")); }
   
   // BreakBoard
   // mySerial.println(F("AT$I=10\r"));
@@ -45,21 +45,18 @@ void loop()
   INA226 device;
 
   String s = generate_send_msg(device);
-  s = "AT$SF=" + s + "\r";
-  Serial.println(s);
-
-  // transceiver.sendMessage(s);
-  mySerial.print(s);
+  
+  transceiver.sendMessage(s);
+  // s = "AT$SF=" + s + "\r";
+  // mySerial.print(s);
   
   data_id_counter();
-  delay(1000); // 本番では10秒にする
+  delay(90000); // 本番では10秒にする
 }
 
 void data_id_counter()
 {
-  data_id == MAX_DATA_ID
-    ? data_id = 0
-    : data_id++; 
+  data_id == MAX_DATA_ID ? data_id = 0 : data_id++; 
 }
 
 String generate_send_msg(INA226 device)
@@ -80,13 +77,20 @@ String generate_send_msg(INA226 device)
   wd[2] = (IS_MEASUREMENT_ERROR << 7) | data_id;
 
   // 3 byte
-  int average = device.measurement();
+  float average = device.get_ampere();
+  delay(100);
+  for (int i = 0; i < 59; i++) {
+    average = (average + device.get_ampere()) / 2;
+    delay(100);
+  }
+  
   filter = 0x00ff;
-  wd[3] = average & filter;
+  int avg = (int)average;
+  wd[3] = avg & filter;
 
   // 4 byte
   filter = 0x0f00;
-  wd[4] = (DEVICE_ID << 4) | (average & filter) >> 8;
+  wd[4] = (DEVICE_ID << 4) | (avg & filter) >> 8;
 
   sprintf(&send_msg[0], "%x", wd[0] & 0x0f);
   sprintf(&send_msg[1], "%x", wd[0] & 0xf0);
