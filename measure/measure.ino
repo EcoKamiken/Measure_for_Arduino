@@ -1,3 +1,4 @@
+#include <avr/sleep.h>
 #include <Wire.h>     
 #include <SoftwareSerial.h>
                                                                                                                                                            
@@ -6,16 +7,20 @@
 
 SoftwareSerial mySerial(10, 11); // RX, TX
 
-// Constant
-const int SITE_ID = 4095;
-const int DEVICE_ID = 15;
-const int FORMAT_VERSION = 15;
-const int MAX_DATA_ID = 127;
-const int MAX_WORD = 6;
-const int MAX_SEND_MSG = 12;
-int IS_MEASUREMENT_ERROR = 1;
+// 電文フォーマットのバージョン
+const int FORMAT_VERSION = 0;   // フォーマットバージョン: 0 - 15
 
-// Sigfox
+// User settings
+const int SITE_ID = 15;          // 発電所ID: 0 - 4095
+const int DEVICE_ID = 7;        // デバイスID: 0 - 15
+
+// 電文関係
+const int MAX_DATA_ID = 127;    // シーケンス番号: 0 - 127
+const int MAX_WORD = 6;         // 2バイトで1ワードと定義した時の最大ワード数: 6
+const int MAX_SEND_MSG = 12;    // メッセージ長: 12
+int IS_MEASUREMENT_ERROR = 0;   // エラーフラグ: 0 - 1
+
+// Sigfox関係
 static const String device = "NOTUSED";
 static const bool useEmulator = false;
 static const bool echo = true;
@@ -23,35 +28,26 @@ static const Country country = COUNTRY_JP;
 static UnaShieldV2S transceiver(country, useEmulator, device, echo);
 static String response;
 
-// Variables
+// シーケンスナンバー
 int data_id = 0;
+
+String generate_send_msg(INA226, int, int);
 
 void setup()
 {
   Wire.begin();
   Serial.begin(9600);
   mySerial.begin(9600);
-  Serial.println(F("Running setup..."));
-
-  // Arduino Shield
-  if (!transceiver.begin()) { stop(F("Unable to init SIGFOX module. may be missing")); }
-  
-  // BreakBoard
-  // mySerial.println(F("AT$I=10\r"));
 }
 
 void loop()
 {  
   INA226 device;
-
-  String s = generate_send_msg(device);
-  
-  transceiver.sendMessage(s);
-  // s = "AT$SF=" + s + "\r";
-  // mySerial.print(s);
-  
+  String s = generate_send_msg(device, 1, 10000); 
+  s = "AT$SF=" + s + "\r";
+  Serial.println(s);
+  mySerial.print(s);
   data_id_counter();
-  delay(90000); // 本番では10秒にする
 }
 
 void data_id_counter()
@@ -59,7 +55,7 @@ void data_id_counter()
   data_id == MAX_DATA_ID ? data_id = 0 : data_id++; 
 }
 
-String generate_send_msg(INA226 device)
+String generate_send_msg(INA226 device, int count = 15, int interval = 60000)
 {
   static char send_msg[MAX_SEND_MSG + 1];
   int wd[MAX_WORD + 1] = {0};
@@ -77,11 +73,12 @@ String generate_send_msg(INA226 device)
   wd[2] = (IS_MEASUREMENT_ERROR << 7) | data_id;
 
   // 3 byte
-  float average = device.get_ampere();
-  delay(100);
-  for (int i = 0; i < 59; i++) {
-    average = (average + device.get_ampere()) / 2;
-    delay(100);
+  float average = device.get_voltage();
+  delay(interval);
+  for (int i = 0; i < count; i++) {
+    Serial.println(average);
+    average = (average + device.get_voltage()) / 2;
+    delay(interval);
   }
   
   filter = 0x00ff;
