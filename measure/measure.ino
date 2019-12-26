@@ -31,6 +31,7 @@ static String response;
 // シーケンスナンバー
 int data_id = 0;
 
+// プロトタイプ宣言
 String generate_send_msg(INA226, int, int);
 
 void setup()
@@ -43,7 +44,8 @@ void setup()
 void loop()
 {  
   INA226 device;
-  String s = generate_send_msg(device, 1, 10000); 
+  // String s = generate_send_msg(device, 1, 10000); 
+  String s = generate_send_msg();
   s = "AT$SF=" + s + "\r";
   Serial.println(s);
   mySerial.print(s);
