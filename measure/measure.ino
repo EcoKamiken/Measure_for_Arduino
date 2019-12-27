@@ -11,8 +11,8 @@ SoftwareSerial mySerial(10, 11); // RX, TX
 const int FORMAT_VERSION = 0;   // フォーマットバージョン: 0 - 15
 
 // User settings
-const int SITE_ID = 15;          // 発電所ID: 0 - 4095
-const int DEVICE_ID = 7;        // デバイスID: 0 - 15
+const int SITE_ID = 4095;          // 発電所ID: 0 - 4095
+const int DEVICE_ID = 15;        // デバイスID: 0 - 15
 
 // 電文関係
 const int MAX_DATA_ID = 127;    // シーケンス番号: 0 - 127
@@ -37,7 +37,6 @@ String generate_send_msg(INA226, int, int);
 void setup()
 {
   Wire.begin();
-  Serial.begin(9600);
   mySerial.begin(9600);
 }
 
@@ -45,9 +44,8 @@ void loop()
 {  
   INA226 device;
   // String s = generate_send_msg(device, 1, 10000); 
-  String s = generate_send_msg(device, 1, 1000);
+  String s = generate_send_msg(device, 15, 60000);
   s = "AT$SF=" + s + "\r";
-  Serial.println(s);
   mySerial.print(s);
   data_id_counter();
 }
@@ -59,7 +57,7 @@ void data_id_counter()
 
 /*
  * count (int): データ収集する回数
- * interval (int): データ収集の間隔(秒)
+ * interval (int): データ収集の間隔(ミリ秒)
  */
 String generate_send_msg(INA226 device, int count, int interval)
 {
@@ -82,7 +80,6 @@ String generate_send_msg(INA226 device, int count, int interval)
   float average = device.get_voltage();
   delay(interval);
   for (int i = 0; i < count; i++) {
-    Serial.println(average);
     average = (average + device.get_voltage()) / 2;
     delay(interval);
   }
@@ -107,7 +104,6 @@ String generate_send_msg(INA226 device, int count, int interval)
   send_msg[10] = '\0';
 
   String s = send_msg;
-  Serial.println(s);
 
   return s;
 }
