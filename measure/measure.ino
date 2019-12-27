@@ -45,7 +45,7 @@ void loop()
 {  
   INA226 device;
   // String s = generate_send_msg(device, 1, 10000); 
-  String s = generate_send_msg();
+  String s = generate_send_msg(device, 1, 1000);
   s = "AT$SF=" + s + "\r";
   Serial.println(s);
   mySerial.print(s);
@@ -57,7 +57,11 @@ void data_id_counter()
   data_id == MAX_DATA_ID ? data_id = 0 : data_id++; 
 }
 
-String generate_send_msg(INA226 device, int count = 15, int interval = 60000)
+/*
+ * count (int): データ収集する回数
+ * interval (int): データ収集の間隔(秒)
+ */
+String generate_send_msg(INA226 device, int count, int interval)
 {
   static char send_msg[MAX_SEND_MSG + 1];
   int wd[MAX_WORD + 1] = {0};
@@ -84,12 +88,11 @@ String generate_send_msg(INA226 device, int count = 15, int interval = 60000)
   }
   
   filter = 0x00ff;
-  int avg = (int)average;
+  int avg = (average * 100.0) / 2; // 4.56[V] -> 456 -> 228
   wd[3] = avg & filter;
 
   // 4 byte
-  filter = 0x0f00;
-  wd[4] = (DEVICE_ID << 4) | (avg & filter) >> 8;
+  wd[4] = DEVICE_ID;
 
   sprintf(&send_msg[0], "%x", wd[0] & 0x0f);
   sprintf(&send_msg[1], "%x", wd[0] & 0xf0);
@@ -104,6 +107,7 @@ String generate_send_msg(INA226 device, int count = 15, int interval = 60000)
   send_msg[10] = '\0';
 
   String s = send_msg;
+  Serial.println(s);
 
   return s;
 }
