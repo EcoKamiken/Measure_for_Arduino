@@ -1,4 +1,6 @@
 #include <avr/sleep.h>
+#include <avr/power.h>
+#include <avr/wdt.h>
 #include <Wire.h>     
 #include <SoftwareSerial.h>
                                                                                                                                                            
@@ -8,43 +10,54 @@
 SoftwareSerial mySerial(10, 11); // RX, TX
 
 // 電文フォーマットのバージョン
-const int FORMAT_VERSION = 0;   // フォーマットバージョン: 0 - 15
-
+const uint8_t FORMAT_VERSION = 0;   // フォーマットバージョン: 0 - 15
+ 
 // User settings
-const int SITE_ID = 4095;          // 発電所ID: 0 - 4095
-const int DEVICE_ID = 15;        // デバイスID: 0 - 15
+const uint16_t SITE_ID = 4095;          // 発電所ID: 0 - 4095
+const uint8_t DEVICE_ID = 15;        // デバイスID: 0 - 15
+const uint8_t INTERVAL = 1;         // 秒
+const uint8_t COUNT = 3;            // 回
 
 // 電文関係
-const int MAX_DATA_ID = 127;    // シーケンス番号: 0 - 127
-const int MAX_WORD = 6;         // 2バイトで1ワードと定義した時の最大ワード数: 6
-const int MAX_SEND_MSG = 12;    // メッセージ長: 12
-int IS_MEASUREMENT_ERROR = 0;   // エラーフラグ: 0 - 1
-
-// Sigfox関係
-static const String device = "NOTUSED";
-static const bool useEmulator = false;
-static const bool echo = true;
-static const Country country = COUNTRY_JP;
-static UnaShieldV2S transceiver(country, useEmulator, device, echo);
-static String response;
+const uint8_t MAX_DATA_ID = 127;    // シーケンス番号: 0 - 127
+const uint8_t MAX_WORD = 6;         // 2バイトで1ワードと定義した時の最大ワード数: 6
+const uint8_t MAX_SEND_MSG = 12;    // メッセージ長: 12
+uint8_t IS_MEASUREMENT_ERROR = 0;   // エラーフラグ: 0 - 1
 
 // シーケンスナンバー
-int data_id = 0;
+uint8_t data_id = 0;
 
 // プロトタイプ宣言
+void data_id_counter();
 String generate_send_msg(INA226, int, int);
+void delayWDT2(unsigned long t);
+void delayWDT_setup(unsigned int ii);
+void wait_minutes(uint8_t);
 
 void setup()
 {
   Wire.begin();
-  mySerial.begin(9600);
+  mySerial.begin(9600); 
+  Serial.begin(9600);                                                                                                                   
 }
+
+INA226 device;
 
 void loop()
 {  
-  INA226 device;
-  // String s = generate_send_msg(device, 1, 10000); 
-  String s = generate_send_msg(device, 15, 60000);
+  mySerial.print("AT$P=2");
+
+  device.set_i2c_addr(0x40);
+  Serial.print(F("I2C ADDR: "));
+  Serial.println(device.get_i2c_addr(), HEX);
+  Serial.print(F("CONFIG: "));
+  Serial.println(device.get_config(), BIN);
+  
+  device.set_config(0x45ff);
+  Serial.print(F("CONFIG: "));
+  Serial.println(device.get_config(), BIN);
+  
+  String s = generate_send_msg(device, COUNT, INTERVAL*1000);
   s = "AT$SF=" + s + "\r";
   mySerial.print(s);
   data_id_counter();
@@ -78,10 +91,14 @@ String generate_send_msg(INA226 device, int count, int interval)
 
   // 3 byte
   float average = device.get_voltage();
-  delay(interval);
+  Serial.println(F("SLEEP"));
+  wait_minutes(1);
+  Serial.println(F("WAKEUP"));
   for (int i = 0; i < count; i++) {
     average = (average + device.get_voltage()) / 2;
-    delay(interval);
+    Serial.println(F("SLEEP"));
+    wait_minutes(1);
+    Serial.println(F("WAKEUP"));
   }
   
   filter = 0x00ff;
@@ -106,4 +123,59 @@ String generate_send_msg(INA226 device, int count, int interval)
   String s = send_msg;
 
   return s;
+}
+
+void delayWDT2(unsigned long t) {       // パワーダウンモードでdelayを実行
+  Serial.flush();                       // シリアルバッファが空になるまで待つ
+  delayWDT_setup(t);                    // ウォッチドッグタイマー割り込み条件設定
+ 
+  // ADCを停止（消費電流 147→27μA）
+  ADCSRA &= ~(1 << ADEN);
+ 
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // パワーダウンモード指定
+  sleep_enable();
+ 
+  // BODを停止（消費電流 27→6.5μA）
+  MCUCR |= (1 << BODSE) | (1 << BODS);   // MCUCRのBODSとBODSEに1をセット
+  MCUCR = (MCUCR & ~(1 << BODSE)) | (1 << BODS);  // すぐに（4クロック以内）BODSSEを0, BODSを1に設定
+ 
+  asm("sleep");                         // 3クロック以内にスリープ sleep_mode();では間に合わなかった
+ 
+  sleep_disable();                      // WDTがタイムアップでここから動作再開
+  ADCSRA |= (1 << ADEN);                // ADCの電源をON（BODはハードウエアで自動再開される）
+}
+ 
+void delayWDT_setup(unsigned int ii) {  // ウォッチドッグタイマーをセット。
+  // 引数はWDTCSRにセットするWDP0-WDP3の値。設定値と動作時間は概略下記
+  // 0=16ms, 1=32ms, 2=64ms, 3=128ms, 4=250ms, 5=500ms
+  // 6=1sec, 7=2sec, 8=4sec, 9=8sec
+  byte bb;
+  if (ii > 9 ) {                        // 変な値を排除
+    ii = 9;
+  }
+  bb = ii & 7;                          // 下位3ビットをbbに
+  if (ii > 7) {                         // 7以上（7.8,9）なら
+    bb |= (1 << 5);                     // bbの5ビット目(WDP3)を1にする
+  }
+  bb |= ( 1 << WDCE );
+ 
+  MCUSR &= ~(1 << WDRF);                // MCU Status Reg. Watchdog Reset Flag ->0
+  // start timed sequence
+  WDTCSR |= (1 << WDCE) | (1 << WDE);   // ウォッチドッグ変更許可（WDCEは4サイクルで自動リセット）
+  // set new watchdog timeout value
+  WDTCSR = bb;                          // 制御レジスタを設定
+  WDTCSR |= _BV(WDIE);
+}
+ 
+ISR(WDT_vect) {                         // WDTがタイムアップした時に実行される処理
+  //  wdt_cycle++;                      // 必要ならコメントアウトを外す
+}
+
+void wait_minutes(uint8_t minute) {
+  for(uint8_t i = 0; i < minute; i++) {
+    for(uint8_t j = 0; j < 7; j++) {
+      delayWDT2(9);
+    }
+    delayWDT2(8);
+  }
 }

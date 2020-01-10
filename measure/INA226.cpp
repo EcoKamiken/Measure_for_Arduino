@@ -1,19 +1,60 @@
+#include <Arduino.h>
 #include <Wire.h>
 #include "INA226.h"
 
 INA226::INA226() {
-  set_calibration_register();
+  // constructor
 }
 
-int INA226::set_i2c_addr(int addr) {
+/* -------------------------------------------
+ * Wrapper
+ * -------------------------------------------*/
+ 
+void INA226::write_register(byte reg, unsigned short value) {
+  Wire.beginTransmission(_I2C_ADDR);
+  Wire.write(reg);
+  Wire.write(value >> 8);
+  Wire.write(value & 0xff);
+  Wire.endTransmission();
+}
+
+short INA226::read_register(byte reg) {
+  short rest = 0;
+  Wire.beginTransmission(_I2C_ADDR);
+  Wire.write(reg);
+  Wire.endTransmission();
+
+  Wire.requestFrom((int)_I2C_ADDR, 2);
+  while (Wire.available()) {
+    rest = (rest << 8) | Wire.read();
+  }
+
+  return rest;
+}
+
+/* -------------------------------------------
+ * Setter
+ * -------------------------------------------*/
+
+void INA226::set_i2c_addr(int addr) {
   _I2C_ADDR = addr;
 }
 
-void INA226::set_calibration_register() {
-  Wire.beginTransmission(_I2C_ADDR);
-  Wire.write(_CALIBRATION_ADDR);
-  Wire.write(0x0F); // FIXME
-  Wire.endTransmission();
+
+void INA226::set_config(short value) {
+  write_register(_CONFIG_ADDR, value);
+}
+
+/* -------------------------------------------
+ * Getter
+ * -------------------------------------------*/
+
+int INA226::get_config() {
+  return read_register(_CONFIG_ADDR);
+}
+
+int INA226::get_i2c_addr() {
+  return _I2C_ADDR;
 }
 
 float INA226::fetch_register(int addr, int byte_len) {
