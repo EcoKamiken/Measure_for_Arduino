@@ -34,29 +34,43 @@ void delayWDT2(unsigned long t);
 void delayWDT_setup(unsigned int ii);
 void wait_minutes(uint8_t);
 
+// INA226
+INA226 device;
+const uint8_t normal_mode = device.get_mode(0);
+const uint8_t sleep_mode = device.get_mode(1);
+
 void setup()
 {
+  Serial.println(F("Initialize..."));
   Wire.begin();
   mySerial.begin(9600); 
-  Serial.begin(9600);                                                                                                                   
-}
-
-INA226 device;
-
-void loop()
-{  
-  mySerial.print("AT$P=2");
-
-  device.set_i2c_addr(0x40);
+  Serial.begin(9600);
+     
   Serial.print(F("I2C ADDR: "));
   Serial.println(device.get_i2c_addr(), HEX);
   Serial.print(F("CONFIG: "));
-  Serial.println(device.get_config(), BIN);
-  
-  device.set_config(0x45ff);
+  Serial.println(device.get_config(), BIN);                                                                                                                
+}
+
+void loop()
+{  
+  device.set_config(normal_mode);
   Serial.print(F("CONFIG: "));
   Serial.println(device.get_config(), BIN);
+  delay(5000);
+
+  float volt = device.get_voltage();
+  Serial.println(volt);
   
+  device.set_config(sleep_mode);
+  Serial.print(F("CONFIG: "));
+  Serial.println(device.get_config(), BIN);
+  delay(5000);
+  
+  // solver()
+}
+
+void solver() {
   String s = generate_send_msg(device, COUNT, INTERVAL*1000);
   s = "AT$SF=" + s + "\r";
   mySerial.print(s);

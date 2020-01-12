@@ -17,20 +17,22 @@ class INA226
     // Getter
     int get_i2c_addr();
     int get_config();
-    
-    float fetch_register(int, int);
+    uint16_t get_mode(uint16_t);
     float get_voltage();
-    float get_power();
     float get_ampere();
+    float get_power();
     
   private:
-    int _I2C_ADDR = 0x4a;
-    const int _CONFIG_ADDR = 0x00;
-    const int _SHUNT_ADDR = 0x01;
-    const int _BUS_ADDR = 0x02;
-    const int _POWER_ADDR = 0x03;
-    const int _CURRENT_ADDR = 0x04;
-    const int _CALIBRATION_ADDR = 0x05;
+    uint8_t _I2C_ADDR = 0x4a;
+    const uint8_t _CONFIG_ADDR = 0x00;
+    const uint8_t _SHUNT_ADDR = 0x01;
+    const uint8_t _BUS_ADDR = 0x02;
+    const uint8_t _POWER_ADDR = 0x03;
+    const uint8_t _CURRENT_ADDR = 0x04;
+    const uint8_t _CALIBRATION_ADDR = 0x05;
+
+    const uint16_t _NORMAL_MODE = 0b0100000100100111;
+    const uint16_t _SLEEP_MODE = 0b0100000100100000;
 };
 
 #endif
