@@ -4,8 +4,6 @@
 class INA226
 {
   public:
-    INA226();
-    
     // Wrapper
     void write_register(byte, unsigned short);
     short read_register(byte);
