@@ -29,8 +29,8 @@ class INA226
     const uint8_t _CURRENT_ADDR = 0x04;
     const uint8_t _CALIBRATION_ADDR = 0x05;
 
-    const uint16_t _NORMAL_MODE = 0b0100000100100111;
-    const uint16_t _SLEEP_MODE = 0b0100000100100000;
+    const uint16_t _NORMAL_MODE = 0b0110000100100111;
+    const uint16_t _SLEEP_MODE = 0b0110000100100000;
 };
 
 #endif

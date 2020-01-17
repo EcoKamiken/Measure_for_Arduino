@@ -3,32 +3,24 @@
 
 #include "INA226.h"
 #include "deepsleep.h"
-#include "SIGFOX.h"
 
 SoftwareSerial mySerial(10, 11); // RX, TX
 
 // 電文フォーマットのバージョン
-const uint8_t FORMAT_VERSION = 0;   // フォーマットバージョン: 0 - 15
+const uint8_t FORMAT_VERSION = 0; // フォーマットバージョン: 0 - 15
 
 // User settings
-const uint16_t SITE_ID = 1;          // 発電所ID: 0 - 4095
-const uint8_t DEVICE_ID = 0;        // デバイスID: 0 - 15
+const uint16_t SITE_ID = 0;  // 発電所ID: 0 - 4095
+const uint8_t DEVICE_ID = 0; // デバイスID: 0 - 15
 
 // 電文関係
 const uint8_t MAX_WORD = 12;
-const uint8_t MAX_MSG = 12;    // メッセージ長: 12
-
-// プロトタイプ宣言
-void data_id_counter();
-String generate_send_msg(INA226, int, int);
-void delayWDT2(unsigned long t);
-void delayWDT_setup(unsigned int ii);
-void wait_minutes(uint8_t);
+const uint8_t MAX_MSG = 12; // メッセージ長: 12
 
 // INA226
 INA226 device;
-const uint8_t normal_mode = device.get_mode(0);
-const uint8_t sleep_mode = device.get_mode(1);
+const uint8_t normal_mode = device.get_mode(0); // Normal
+const uint8_t sleep_mode = device.get_mode(1);  // Sleep
 
 void setup()
 {
@@ -41,13 +33,15 @@ void setup()
 }
 
 void loop()
-{ 
+{
   solver();
 }
 
-void solver() {
+void solver()
+{
   // INA226 データ取得
   device.set_config(normal_mode);
+  delay(1000); // レジスタのリフレッシュ待ち
   float voltage = device.get_voltage();
   device.set_config(sleep_mode);
 
@@ -56,17 +50,19 @@ void solver() {
   String msg = "AT$SF=" + buf + "\r";
   digitalWrite(12, LOW);
   digitalWrite(12, HIGH);
-  mySerial.print(msg);
+  //mySerial.print(msg);
   mySerial.print("AT$P=2\r");
 
+  Serial.println(msg);
+
   // 指定時間Sleep
-  deep_sleep(15);
+  // deep_sleep(1);
 }
 
 String create_sigfox_msg(float voltage)
 {
   uint8_t wd[MAX_WORD + 1] = {0};
-  int v = voltage * 100;
+  uint16_t v = voltage * 100;
 
   wd[0] = SITE_ID & 0x00ff;
   wd[1] = (FORMAT_VERSION << 4) | (SITE_ID & 0x0f00) >> 8;
