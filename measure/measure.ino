@@ -41,7 +41,7 @@ void solver()
 {
   // INA226 データ取得
   device.set_config(normal_mode);
-  delay(1000); // レジスタのリフレッシュ待ち
+  delay(5000); // レジスタのリフレッシュ待ち
   float voltage = device.get_voltage();
   device.set_config(sleep_mode);
 
@@ -50,13 +50,11 @@ void solver()
   String msg = "AT$SF=" + buf + "\r";
   digitalWrite(12, LOW);
   digitalWrite(12, HIGH);
-  //mySerial.print(msg);
+  mySerial.print(msg);
   mySerial.print("AT$P=2\r");
 
-  Serial.println(msg);
-
   // 指定時間Sleep
-  // deep_sleep(1);
+  deep_sleep(15);
 }
 
 String create_sigfox_msg(float voltage)
